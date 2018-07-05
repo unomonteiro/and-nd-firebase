@@ -23,6 +23,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
@@ -190,6 +191,7 @@ public class MainActivity extends AppCompatActivity {
         Map<String, Object> defaultConfigMap = new HashMap<>();
         defaultConfigMap.put(FRIENDLY_MSG_LENGTH_KEY, DEFAULT_MSG_LENGTH_LIMIT);
         mFirebaseRemoteConfig.setDefaults(defaultConfigMap);
+        fetchConfig();
 
     }
 
@@ -306,5 +308,36 @@ public class MainActivity extends AppCompatActivity {
             mChildEventListener = null;
         }
 
+    }
+
+    private void fetchConfig() {
+        long cacheExpiration = 3600;
+
+        if (mFirebaseRemoteConfig.getInfo().getConfigSettings().isDeveloperModeEnabled()) {
+            cacheExpiration = 0;
+        }
+        mFirebaseRemoteConfig.fetch(cacheExpiration)
+        .addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                Log.w(TAG, "onFailure: Error fetching config", e);
+                applyRetrievedLengthLimit();
+            }
+        })
+        .addOnSuccessListener(new OnSuccessListener<Void>() {
+            @Override
+            public void onSuccess(Void aVoid) {
+                mFirebaseRemoteConfig.activateFetched();
+                applyRetrievedLengthLimit();
+            }
+        });
+
+    }
+
+    private void applyRetrievedLengthLimit() {
+        Long friendly_msg_length = mFirebaseRemoteConfig.getLong(FRIENDLY_MSG_LENGTH_KEY);
+        mMessageEditText.setFilters(new InputFilter[]{
+                new InputFilter.LengthFilter(friendly_msg_length.intValue())});
+        Log.d(TAG, "applyRetrievedLengthLimit = " + friendly_msg_length.intValue());
     }
 }
